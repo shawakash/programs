@@ -1,0 +1,46 @@
+name: Solana Program Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test Solana Program
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install Solana CLI
+        uses: ./.github/actions/install-solana
+        with:
+          solana_version: v1.18.1
+
+      - name: Install dependencies
+        working-directory: ./first_sol/tests
+        run: bun install
+
+      - name: Setup local validator
+        run: |
+          solana-test-validator --bpf-program FR7EirJHK94Z38Xu87HPWTnD56jMLEwnu3YeNG7CpoDq ./first_sol/target/deploy/first_sol.so --reset --quiet &
+          sleep 5
+          solana config set --url http://127.0.0.1:8899
+
+      - name: Build Solana program
+        working-directory: ./first_sol
+        run: |
+          cargo build-bpf
+          solana program deploy ./target/deploy/first_sol.so
+
+      - name: Run tests
+        working-directory: ./first_sol/tests
+        run: bun test
